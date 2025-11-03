@@ -22,6 +22,18 @@ export default function DashboardPage() {
 
     const fetchStats = async () => {
       try {
+        // 開発モードの場合はダミーデータ
+        if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy')) {
+          setStats({
+            lpViews: 1250,
+            lineRegs: 342,
+            bookings: 89,
+            purchases: 23,
+          })
+          setLoading(false)
+          return
+        }
+
         // Get last 7 days of funnel data
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
@@ -51,6 +63,8 @@ export default function DashboardPage() {
         setStats(totals)
       } catch (error) {
         console.error('Failed to fetch stats:', error)
+        // エラー時はデフォルト値
+        setStats({ lpViews: 0, lineRegs: 0, bookings: 0, purchases: 0 })
       } finally {
         setLoading(false)
       }

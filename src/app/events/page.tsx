@@ -21,6 +21,13 @@ export default function EventsPage() {
 
     const loadEvents = async () => {
       try {
+        // 開発モードの場合は空配列
+        if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy')) {
+          setEvents([])
+          setLoading(false)
+          return
+        }
+
         const q = query(
           collection(db, 'events'),
           where('ownerRef', '==', user.uid),
@@ -36,6 +43,7 @@ export default function EventsPage() {
         setEvents(eventsData)
       } catch (error) {
         console.error('Failed to load events:', error)
+        setEvents([])
       } finally {
         setLoading(false)
       }

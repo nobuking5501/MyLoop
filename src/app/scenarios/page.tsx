@@ -20,6 +20,13 @@ export default function ScenariosPage() {
 
     const loadScenarios = async () => {
       try {
+        // 開発モードの場合は空配列
+        if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy')) {
+          setScenarios([])
+          setLoading(false)
+          return
+        }
+
         const q = query(collection(db, 'scenarios'), where('ownerRef', '==', user.uid))
         const snapshot = await getDocs(q)
 
@@ -31,6 +38,7 @@ export default function ScenariosPage() {
         setScenarios(scenariosData)
       } catch (error) {
         console.error('Failed to load scenarios:', error)
+        setScenarios([])
       } finally {
         setLoading(false)
       }
