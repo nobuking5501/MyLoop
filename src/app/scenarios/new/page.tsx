@@ -130,6 +130,15 @@ export default function NewScenarioPage() {
         createdAt: Timestamp.now(),
       }
 
+      // 開発モードの場合はローカルストレージに保存
+      if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy')) {
+        const mockScenarios = JSON.parse(localStorage.getItem('mock_scenarios') || '[]')
+        mockScenarios.push({ id: `scenario_${Date.now()}`, ...scenario })
+        localStorage.setItem('mock_scenarios', JSON.stringify(mockScenarios))
+        router.push('/scenarios')
+        return
+      }
+
       await addDoc(collection(db, 'scenarios'), scenario)
       router.push('/scenarios')
     } catch (error) {

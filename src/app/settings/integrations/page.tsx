@@ -46,6 +46,12 @@ export default function IntegrationsPage() {
 
     const loadIntegrations = async () => {
       try {
+        // 開発モードの場合は空のまま
+        if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy')) {
+          setLoading(false)
+          return
+        }
+
         const providers: IntegrationProvider[] = ['line', 'google', 'zoom', 'sheets']
 
         for (const provider of providers) {
@@ -88,6 +94,14 @@ export default function IntegrationsPage() {
     setMessage(null)
 
     try {
+      // 開発モードの場合はローカルストレージに保存
+      if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy')) {
+        localStorage.setItem(`integration_${provider}`, JSON.stringify(config))
+        setMessage({ type: 'success', text: `${getProviderName(provider)}の設定を保存しました（開発モード）` })
+        setSaving(null)
+        return
+      }
+
       const integration: Integration = {
         ownerRef: user.uid,
         provider,

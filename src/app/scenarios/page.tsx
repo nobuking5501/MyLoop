@@ -20,9 +20,10 @@ export default function ScenariosPage() {
 
     const loadScenarios = async () => {
       try {
-        // 開発モードの場合は空配列
+        // 開発モードの場合はローカルストレージから読み込み
         if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy')) {
-          setScenarios([])
+          const mockScenarios = JSON.parse(localStorage.getItem('mock_scenarios') || '[]')
+          setScenarios(mockScenarios)
           setLoading(false)
           return
         }
@@ -52,6 +53,16 @@ export default function ScenariosPage() {
 
     setDeleting(id)
     try {
+      // 開発モードの場合はローカルストレージから削除
+      if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy')) {
+        const mockScenarios = JSON.parse(localStorage.getItem('mock_scenarios') || '[]')
+        const filtered = mockScenarios.filter((s: any) => s.id !== id)
+        localStorage.setItem('mock_scenarios', JSON.stringify(filtered))
+        setScenarios(scenarios.filter((s) => s.id !== id))
+        setDeleting(null)
+        return
+      }
+
       await deleteDoc(doc(db, 'scenarios', id))
       setScenarios(scenarios.filter((s) => s.id !== id))
     } catch (error) {
