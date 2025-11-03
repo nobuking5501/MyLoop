@@ -25,31 +25,50 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// 開発モード判定
+const isDevelopmentMode = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy') ||
+                          process.env.NEXT_PUBLIC_FIREBASE_API_KEY === ''
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // 開発モード: ローカルストレージからユーザーを復元
+    if (isDevelopmentMode) {
+      const savedUser = localStorage.getItem('mock_user')
+      if (savedUser) {
+        setUser(JSON.parse(savedUser))
+      }
+      setLoading(false)
+      return
+    }
+
+    // 本番モード: Firebase認証
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setFirebaseUser(firebaseUser)
 
       if (firebaseUser) {
-        // Fetch user data from Firestore
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
-        if (userDoc.exists()) {
-          setUser(userDoc.data() as User)
-        } else {
-          // Create user document if it doesn't exist
-          const newUser: User = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: firebaseUser.displayName || '',
-            roles: ['user'],
-            createdAt: Timestamp.now(),
+        try {
+          // Fetch user data from Firestore
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid))
+          if (userDoc.exists()) {
+            setUser(userDoc.data() as User)
+          } else {
+            // Create user document if it doesn't exist
+            const newUser: User = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || '',
+              roles: ['user'],
+              createdAt: Timestamp.now(),
+            }
+            await setDoc(doc(db, 'users', firebaseUser.uid), newUser)
+            setUser(newUser)
           }
-          await setDoc(doc(db, 'users', firebaseUser.uid), newUser)
-          setUser(newUser)
+        } catch (error) {
+          console.error('Firestore error:', error)
         }
       } else {
         setUser(null)
@@ -62,10 +81,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
+    if (isDevelopmentMode) {
+      // 開発モード: モックログイン
+      const mockUser: User = {
+        uid: 'dev-user-001',
+        email: email || 'dev@example.com',
+        name: '開発ユーザー',
+        roles: ['user', 'admin'],
+        createdAt: Timestamp.now(),
+      }
+      setUser(mockUser)
+      localStorage.setItem('mock_user', JSON.stringify(mockUser))
+      return
+    }
+
+    // 本番モード: Firebase認証
     await signInWithEmailAndPassword(auth, email, password)
   }
 
   const signUp = async (email: string, password: string, name: string) => {
+    if (isDevelopmentMode) {
+      // 開発モード: モックサインアップ
+      const mockUser: User = {
+        uid: 'dev-user-' + Date.now(),
+        email: email,
+        name: name,
+        roles: ['user'],
+        createdAt: Timestamp.now(),
+      }
+      setUser(mockUser)
+      localStorage.setItem('mock_user', JSON.stringify(mockUser))
+      return
+    }
+
+    // 本番モード: Firebase認証
     const userCredential = await createUserWithEmailAndPassword(auth, email, password)
 
     // Create user document in Firestore
@@ -81,10 +130,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
+    if (isDevelopmentMode) {
+      // 開発モード: モックログアウト
+      setUser(null)
+      localStorage.removeItem('mock_user')
+      return
+    }
+
+    // 本番モード: Firebase認証
     await firebaseSignOut(auth)
   }
 
   const resetPassword = async (email: string) => {
+    if (isDevelopmentMode) {
+      // 開発モード: 何もしない
+      console.log('Mock password reset for:', email)
+      return
+    }
+
+    // 本番モード: Firebase認証
     await sendPasswordResetEmail(auth, email)
   }
 
