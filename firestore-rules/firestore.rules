@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(ownerRef) {
+      return isAuthenticated() && request.auth.uid == ownerRef;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(['admin', 'superadmin']);
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Contacts collection
+    match /contacts/{contactId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerRef);
+      allow update: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow delete: if isAuthenticated() && isOwner(resource.data.ownerRef);
+    }
+
+    // Scenarios collection
+    match /scenarios/{scenarioId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerRef);
+      allow update: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow delete: if isAuthenticated() && isOwner(resource.data.ownerRef);
+    }
+
+    // Message templates collection
+    match /message_templates/{templateId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerRef);
+      allow update: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow delete: if isAuthenticated() && isOwner(resource.data.ownerRef);
+    }
+
+    // Events collection
+    match /events/{eventId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerRef);
+      allow update: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow delete: if isAuthenticated() && isOwner(resource.data.ownerRef);
+    }
+
+    // Funnels daily collection
+    match /funnels_daily/{funnelId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow write: if false; // Only functions can write
+    }
+
+    // Recommendations collection
+    match /recommendations/{recommendationId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow write: if false; // Only functions can write
+    }
+
+    // Integrations collection
+    match /integrations/{integrationId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerRef);
+      allow update: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow delete: if isAuthenticated() && isOwner(resource.data.ownerRef);
+    }
+
+    // Audit logs collection
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only functions can write
+    }
+
+    // Students collection (for collaborative development)
+    match /students/{studentId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}
