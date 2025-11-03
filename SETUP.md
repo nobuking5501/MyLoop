@@ -35,16 +35,15 @@ npm run dev
 
 ### 1. 環境変数の設定
 
-```powershell
-# .env.exampleをコピー
-copy .env.example .env.local
+✅ **完了済み**: Firebase本番環境の設定が`.env.local`に設定されています。
 
-# .env.localを編集してAPIキーを設定
-notepad .env.local
+```bash
+# 設定内容を確認
+cat .env.local
 ```
 
 必要なAPIキー：
-- ✅ Firebase（必須）- プロジェクト作成後、設定から取得
+- ✅ **Firebase（設定済み）** - プロジェクトID: `myloop-fafd7`
 - ⏳ LINE Messaging API（任意）- LINE Developers Consoleで取得
 - ⏳ Claude API（任意）- Anthropic Consoleで取得
 - ⏳ Google Calendar/Sheets（任意）- Google Cloud Consoleで取得
@@ -52,55 +51,42 @@ notepad .env.local
 
 ### 2. Firebaseプロジェクト作成
 
-1. [Firebase Console](https://console.firebase.google.com/)にアクセス
-2. 「プロジェクトを追加」をクリック
-3. プロジェクト名: `myloop` (または任意の名前)
-4. Analyticsは任意で有効化
-5. プロジェクト設定 → 全般 → マイアプリ → ウェブアプリを追加
-6. 表示される設定値を`.env.local`にコピー
+✅ **完了済み**: Firebaseプロジェクト `myloop-fafd7` が作成されています。
 
-#### Firebase設定値の例：
+プロジェクトURL: https://console.firebase.google.com/project/myloop-fafd7/overview
+
+#### 設定済みの内容：
 ```env
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=myloop-xxxxx.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=myloop-xxxxx
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=myloop-xxxxx.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
-NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:xxxxx
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyB-s4NBzE_CUhyh9f3vsjosIv9xPCxPDco
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=myloop-fafd7.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=myloop-fafd7
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=myloop-fafd7.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=47288709729
+NEXT_PUBLIC_FIREBASE_APP_ID=1:47288709729:web:6533b9c9c7e0730288b020
 ```
 
 ### 3. Firebase Authenticationを有効化
 
-1. Firebase Console → Authentication
+⚠️ **要対応**: 以下のステップでAuthenticationを有効化してください。
+
+1. [Firebase Console](https://console.firebase.google.com/project/myloop-fafd7/authentication) にアクセス
 2. 「始める」をクリック
 3. 「Sign-in method」タブ
 4. 「メール/パスワード」を有効化
+5. 保存
 
 ### 4. Firestoreを有効化
 
-1. Firebase Console → Firestore Database
-2. 「データベースを作成」
-3. 「本番環境モードで開始」を選択
-4. ロケーション: `asia-northeast1` (東京)
-5. Security Rulesをデプロイ:
+✅ **完了済み**: Firestoreデータベースが作成され、セキュリティルールとインデックスがデプロイされています。
 
 ```bash
-# Firebase CLIをインストール（初回のみ）
-npm install -g firebase-tools
-
-# Firebaseにログイン
-firebase login
-
-# Firebaseプロジェクトを初期化
-firebase init
-
-# Firestoreのみを選択
-# - Firestore Rules: firestore-rules/firestore.rules
-# - Firestore Indexes: firestore-rules/firestore.indexes.json
-
-# デプロイ
-firebase deploy --only firestore
+# デプロイ済みの内容
+✔ Firestore database (default) created
+✔ Security rules deployed
+✔ Indexes deployed
 ```
+
+確認URL: https://console.firebase.google.com/project/myloop-fafd7/firestore
 
 ## 🧪 動作確認
 
