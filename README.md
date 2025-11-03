@@ -158,12 +158,18 @@ npm run test:e2e
 
 ## 📅 ロードマップ
 
-### Phase 1 (MVP) - 現在
-- ✅ プロジェクト初期化
-- ⏳ LINE連携とステップ配信
-- ⏳ 予約管理（Zoom連携）
-- ⏳ ダッシュボード
-- ⏳ AI文案生成
+### Phase 1 (MVP) - ✅ 完了
+- ✅ プロジェクト初期化（Next.js 14 + Firebase）
+- ✅ 認証システム（Firebase Auth）
+- ✅ LINE連携とステップ配信（Webhook + Dispatcher）
+- ✅ シナリオ管理UI（ステップ設定）
+- ✅ 予約管理UI（イベント表示・フィルタ）
+- ✅ ダッシュボード（KPI表示・ファネル分析）
+- ✅ AI文案生成（Claude API統合）
+- ✅ 連携設定（LINE/Google/Zoom/Sheets）
+- ✅ メッセージプレビュー（変数差込）
+- ✅ Google Sheets同期機能
+- ✅ Firebase Functions（Webhook/Dispatcher/Reminder）
 
 ### Phase 2
 - Meta/Google広告データ統合
