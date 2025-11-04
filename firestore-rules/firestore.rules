@@ -87,5 +87,21 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if isAdmin();
     }
+
+    // Student progress collection (for tracking development progress)
+    match /student_progress/{progressId} {
+      allow read: if isAdmin() || (isAuthenticated() && isOwner(resource.data.ownerRef));
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerRef);
+      allow update: if isAdmin() || (isAuthenticated() && isOwner(resource.data.ownerRef));
+      allow delete: if isAdmin();
+    }
+
+    // Delivery logs collection (append-only for message delivery tracking)
+    match /delivery_logs/{logId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerRef);
+      allow update: if false; // Append-only
+      allow delete: if isAdmin();
+    }
   }
 }

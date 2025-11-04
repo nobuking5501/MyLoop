@@ -1,8 +1,18 @@
 import { initializeApp, getApps } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 
-// 開発モード判定
+// エミュレーター使用フラグ
+const useEmulator = process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATOR === 'true'
+
+// エミュレーター設定
+const emulatorConfig = {
+  host: process.env.NEXT_PUBLIC_FIREBASE_EMU_HOST || 'localhost',
+  firestorePort: parseInt(process.env.NEXT_PUBLIC_FIREBASE_EMU_FIRESTORE_PORT || '8080'),
+  authPort: parseInt(process.env.NEXT_PUBLIC_FIREBASE_EMU_AUTH_PORT || '9099'),
+}
+
+// 開発モード判定（モックデータ使用）
 const isDevelopmentMode =
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy') ||
   !process.env.NEXT_PUBLIC_FIREBASE_API_KEY
@@ -26,13 +36,25 @@ if (typeof window !== 'undefined') {
   auth = getAuth(app)
   db = getFirestore(app)
 
-  // 開発モードの場合、Firestoreの接続エラーを無効化
-  if (isDevelopmentMode) {
-    // Firestoreのログを抑制
-    console.log('🔧 開発モード: Firebase接続は無効化されています')
+  // エミュレーター接続
+  if (useEmulator) {
+    try {
+      connectFirestoreEmulator(db, emulatorConfig.host, emulatorConfig.firestorePort)
+      connectAuthEmulator(auth, `http://${emulatorConfig.host}:${emulatorConfig.authPort}`, {
+        disableWarnings: true,
+      })
+      console.log('🔥 Using Firebase Emulators')
+      console.log(`   Firestore: ${emulatorConfig.host}:${emulatorConfig.firestorePort}`)
+      console.log(`   Auth: ${emulatorConfig.host}:${emulatorConfig.authPort}`)
+    } catch (error) {
+      console.warn('⚠️  Emulator connection failed:', error)
+    }
+  } else if (isDevelopmentMode) {
+    // 開発モードの場合、Firestoreの接続エラーを無効化
+    console.log('🔧 開発モード: Firebase接続は無効化されています（モックデータ使用）')
   }
 }
 
-export { auth, db }
+export { auth, db, useEmulator }
 export default app
 export { isDevelopmentMode }
