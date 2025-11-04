@@ -79,6 +79,162 @@ npm run dev
 
 ブラウザで `http://localhost:3000` を開く
 
+## 🔥 Firestoreルールとインデックスの設定
+
+### ルールとインデックスのデプロイ
+
+Firestore Security RulesとComposite Indexesは、Firebase Consoleまたは CLIでデプロイできます。
+
+#### Firebase Console での設定
+
+1. [Firebase Console](https://console.firebase.google.com/) を開く
+2. プロジェクトを選択 → Firestore Database
+3. **ルール**タブ:
+   - `firestore-rules/firestore.rules` の内容をコピー
+   - 公開ボタンをクリック
+4. **インデックス**タブ:
+   - 複合インデックスが必要な画面（例: `/events`）を開く
+   - エラーメッセージ内の自動作成リンクをクリック、または
+   - `firestore-rules/firestore.indexes.json` を参照して手動作成
+
+#### CLI でのデプロイ
+
+```bash
+# Firestoreルールのみデプロイ
+npm run deploy:rules
+
+# 複合インデックスのみデプロイ
+npm run deploy:indexes
+
+# 両方まとめてデプロイ
+firebase deploy --only firestore
+```
+
+### よくある問題: 複合インデックス不足エラー
+
+予約画面（`/events`）で以下のようなエラーが表示される場合があります：
+
+```
+The query requires an index. You can create it here: https://console.firebase.google.com/...
+```
+
+**解決方法:**
+1. エラーメッセージ内のリンクをクリック
+2. 「インデックスを作成」ボタンをクリック
+3. 数分待つ（インデックス作成には時間がかかります）
+4. ページをリロード
+
+または、事前に `npm run deploy:indexes` を実行しておくことで回避できます。
+
+## 🧪 エミュレーター開発（APIキーを配らない運用）
+
+生徒や共同開発者にFirebase APIキーを配布せず、ローカル開発を行う方法です。
+
+### 1. Firebase CLIのインストール
+
+```bash
+npm install -g firebase-tools
+```
+
+### 2. Firebaseにログイン（初回のみ）
+
+```bash
+firebase login
+```
+
+### 3. エミュレーターの起動
+
+**別のターミナル**で以下を実行:
+
+```bash
+npm run emulators:start
+```
+
+エミュレーターUIが起動します:
+- UI: http://localhost:4000
+- Firestore: localhost:8080
+- Auth: localhost:9099
+- Functions: localhost:5001
+
+### 4. 環境変数の設定
+
+`.env.local`ファイルに以下を追加:
+
+```env
+# エミュレーターを使用
+NEXT_PUBLIC_FIREBASE_USE_EMULATOR=true
+FIREBASE_USE_EMULATOR=true
+
+# 本番のFirebase設定は不要（または空でOK）
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-project
+```
+
+### 5. 開発サーバーの起動
+
+```bash
+npm run dev
+```
+
+ターミナルに以下が表示されれば成功:
+
+```
+🔥 Using Firebase Emulators
+   Firestore: localhost:8080
+   Auth: localhost:9099
+```
+
+### 6. 動作確認
+
+1. `http://localhost:3000` を開く
+2. サインアップしてログイン
+3. データがエミュレーター内に保存される（本番には影響なし）
+4. エミュレーターUIで確認: `http://localhost:4000`
+
+### エミュレーターデータの保存・復元
+
+開発中のテストデータを保存して再利用できます:
+
+```bash
+# データをエクスポート
+npm run emulators:export
+
+# 保存したデータをインポートして起動
+npm run emulators:import
+```
+
+## 🔄 本番環境とエミュレーターの切り替え
+
+### 本番環境で開発する場合
+
+`.env.local`:
+```env
+NEXT_PUBLIC_FIREBASE_USE_EMULATOR=false
+FIREBASE_USE_EMULATOR=false
+
+# 本番のFirebase設定が必要
+NEXT_PUBLIC_FIREBASE_API_KEY=your_actual_api_key
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_actual_project_id
+# ...
+```
+
+### エミュレーターで開発する場合
+
+`.env.local`:
+```env
+NEXT_PUBLIC_FIREBASE_USE_EMULATOR=true
+FIREBASE_USE_EMULATOR=true
+
+# プロジェクトIDのみあればOK
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-project
+```
+
+### 重要な注意点
+
+- ✅ `.env.local`を変更したら、**必ず開発サーバーを再起動**してください
+- ✅ エミュレーター起動中は、別ターミナルで`npm run dev`を実行
+- ✅ `.env.local`は`.gitignore`に含まれています（Gitにコミットされません）
+- ⚠️ 本番APIキーは絶対にGitにコミットしないでください
+
 ## 📁 プロジェクト構造
 
 \`\`\`
@@ -122,6 +278,67 @@ npm run test
 \`\`\`bash
 npm run test:e2e
 \`\`\`
+
+### 動作確認テスト（本番接続）
+
+**前提:** `.env.local`に本番Firebase設定が記載されている
+
+1. 開発サーバー起動
+   ```bash
+   npm run dev
+   ```
+
+2. ブラウザで`http://localhost:3000`を開く
+
+3. サインアップ→ログイン
+
+4. `/events`画面を開く
+
+5. **インデックス不足エラーが出た場合:**
+   - エラーメッセージ内のリンクをクリック
+   - 「インデックスを作成」ボタンをクリック
+   - 数分待ってからリロード
+
+   または事前に:
+   ```bash
+   npm run deploy:indexes
+   ```
+
+6. イベントの作成・編集・削除が正常に動作することを確認
+
+### 動作確認テスト（エミュレーター接続）
+
+**前提:** Firebase CLIがインストール済み（`npm i -g firebase-tools`）
+
+1. `.env.local`を以下のように設定:
+   ```env
+   NEXT_PUBLIC_FIREBASE_USE_EMULATOR=true
+   FIREBASE_USE_EMULATOR=true
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-project
+   ```
+
+2. エミュレーター起動（別ターミナル）:
+   ```bash
+   npm run emulators:start
+   ```
+
+3. 開発サーバー起動:
+   ```bash
+   npm run dev
+   ```
+
+4. ターミナルに以下が表示されることを確認:
+   ```
+   🔥 Using Firebase Emulators
+      Firestore: localhost:8080
+      Auth: localhost:9099
+   ```
+
+5. ブラウザで`http://localhost:3000`を開く
+
+6. サインアップ→ログイン→CRUD操作が正常に動作することを確認
+
+7. エミュレーターUI（`http://localhost:4000`）でデータが保存されていることを確認
 
 ## 🔒 セキュリティ
 

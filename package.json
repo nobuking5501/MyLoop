@@ -9,7 +9,12 @@
     "lint": "next lint",
     "test": "vitest",
     "test:e2e": "playwright test",
-    "check-env": "node check-env.js"
+    "check-env": "node check-env.js",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy:indexes": "firebase deploy --only firestore:indexes",
+    "emulators:start": "firebase emulators:start --only firestore,auth,functions",
+    "emulators:export": "firebase emulators:export ./emulator-data",
+    "emulators:import": "firebase emulators:start --only firestore,auth,functions --import=./emulator-data"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
