@@ -4,7 +4,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 
-export default function ScenariosLayout({
+export default function MessagesLayout({
   children,
 }: {
   children: React.ReactNode

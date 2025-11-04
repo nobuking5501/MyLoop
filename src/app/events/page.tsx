@@ -1,11 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
+import { collection, query, where, getDocs, orderBy, addDoc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Event } from '@/types/firestore'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -15,6 +20,21 @@ export default function EventsPage() {
   const [events, setEvents] = useState<(Event & { id: string })[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'scheduled' | 'completed' | 'cancelled'>('all')
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Form state
+  const [formData, setFormData] = useState({
+    type: 'consultation' as 'booking' | 'webinar' | 'consultation' | 'other',
+    title: '',
+    description: '',
+    startDate: '',
+    startTime: '',
+    duration: '60', // minutes
+    attendeeName: '',
+    attendeeEmail: '',
+    attendeePhone: '',
+  })
 
   useEffect(() => {
     if (!user) return
@@ -51,6 +71,103 @@ export default function EventsPage() {
 
     loadEvents()
   }, [user])
+
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user) {
+      alert('ユーザー情報が取得できません。ログインし直してください。')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      // 開発モードの場合はエラーメッセージ
+      if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.includes('Dummy')) {
+        alert('開発モードでは予約作成はできません。Firebase設定を完了してください。')
+        setIsSaving(false)
+        return
+      }
+
+      // デバッグ情報をログ出力
+      console.log('Creating event with user:', user.uid)
+      console.log('Form data:', formData)
+
+      // 日付と時刻の検証
+      if (!formData.startDate || !formData.startTime) {
+        alert('日付と時刻を入力してください。')
+        setIsSaving(false)
+        return
+      }
+
+      // Combine date and time into start timestamp
+      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`)
+      const endDateTime = new Date(startDateTime.getTime() + parseInt(formData.duration) * 60000)
+
+      // 日付の妥当性チェック
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        alert('日付または時刻の形式が正しくありません。')
+        setIsSaving(false)
+        return
+      }
+
+      const newEvent: Omit<Event, 'id'> = {
+        ownerRef: user.uid,
+        type: formData.type,
+        title: formData.title,
+        description: formData.description || undefined,
+        start: Timestamp.fromDate(startDateTime),
+        end: Timestamp.fromDate(endDateTime),
+        attendeeName: formData.attendeeName || undefined,
+        attendeeEmail: formData.attendeeEmail || undefined,
+        attendeePhone: formData.attendeePhone || undefined,
+        status: 'scheduled',
+        reminderSent: false,
+        createdAt: Timestamp.now(),
+      }
+
+      console.log('New event object:', newEvent)
+      console.log('Attempting to write to Firestore...')
+
+      const docRef = await addDoc(collection(db, 'events'), newEvent)
+      console.log('Event created with ID:', docRef.id)
+
+      // Reset form
+      setFormData({
+        type: 'consultation',
+        title: '',
+        description: '',
+        startDate: '',
+        startTime: '',
+        duration: '60',
+        attendeeName: '',
+        attendeeEmail: '',
+        attendeePhone: '',
+      })
+      setIsDialogOpen(false)
+
+      // Reload events
+      const q = query(
+        collection(db, 'events'),
+        where('ownerRef', '==', user.uid),
+        orderBy('start', 'desc')
+      )
+      const snapshot = await getDocs(q)
+      const eventsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as (Event & { id: string })[]
+      setEvents(eventsData)
+
+      alert('予約を作成しました！')
+    } catch (error) {
+      console.error('Failed to create event:', error)
+      // より詳細なエラーメッセージを表示
+      const errorMessage = error instanceof Error ? error.message : '不明なエラー'
+      alert(`予約の作成に失敗しました。\nエラー: ${errorMessage}\n\nコンソールで詳細を確認してください。`)
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const filteredEvents = events.filter((event) =>
     filter === 'all' ? true : event.status === filter
@@ -104,6 +221,174 @@ export default function EventsPage() {
           <h1 className="text-3xl font-bold text-gray-900">予約管理</h1>
           <p className="text-gray-600 mt-1">予約の確認とスケジュール管理</p>
         </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              ➕ 新規予約
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>新規予約作成</DialogTitle>
+              <DialogDescription>
+                予約情報を入力して、新しい予約を作成します
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateEvent} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="type">予約種別</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value: 'booking' | 'webinar' | 'consultation' | 'other') =>
+                      setFormData({ ...formData, type: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="consultation">相談</SelectItem>
+                      <SelectItem value="booking">予約</SelectItem>
+                      <SelectItem value="webinar">ウェビナー</SelectItem>
+                      <SelectItem value="other">その他</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="duration">所要時間</Label>
+                  <Select
+                    value={formData.duration}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, duration: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15分</SelectItem>
+                      <SelectItem value="30">30分</SelectItem>
+                      <SelectItem value="45">45分</SelectItem>
+                      <SelectItem value="60">60分</SelectItem>
+                      <SelectItem value="90">90分</SelectItem>
+                      <SelectItem value="120">120分</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="title">タイトル *</Label>
+                <Input
+                  id="title"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  placeholder="例: 初回面談"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">説明</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  placeholder="予約の詳細や目的など"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">日付 *</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, startDate: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="startTime">開始時刻 *</Label>
+                  <Input
+                    id="startTime"
+                    type="time"
+                    value={formData.startTime}
+                    onChange={(e) =>
+                      setFormData({ ...formData, startTime: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-3">参加者情報</h3>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="attendeeName">参加者名</Label>
+                    <Input
+                      id="attendeeName"
+                      value={formData.attendeeName}
+                      onChange={(e) =>
+                        setFormData({ ...formData, attendeeName: e.target.value })
+                      }
+                      placeholder="例: 山田太郎"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="attendeeEmail">メールアドレス</Label>
+                    <Input
+                      id="attendeeEmail"
+                      type="email"
+                      value={formData.attendeeEmail}
+                      onChange={(e) =>
+                        setFormData({ ...formData, attendeeEmail: e.target.value })
+                      }
+                      placeholder="example@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="attendeePhone">電話番号</Label>
+                    <Input
+                      id="attendeePhone"
+                      type="tel"
+                      value={formData.attendeePhone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, attendeePhone: e.target.value })
+                      }
+                      placeholder="090-1234-5678"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  className="flex-1"
+                  disabled={isSaving}
+                >
+                  キャンセル
+                </Button>
+                <Button type="submit" className="flex-1" disabled={isSaving}>
+                  {isSaving ? '作成中...' : '予約を作成'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Filter Tabs */}
