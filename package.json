@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check-env": "node check-env.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
