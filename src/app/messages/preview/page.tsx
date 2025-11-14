@@ -1,13 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { db } from '@/lib/firebase/config'
+import { collection, addDoc, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore'
+import { useAuth } from '@/contexts/AuthContext'
+import type { MessageTemplate, TemplateFolder } from '@/types/firestore'
+import FolderManagement from '@/components/templates/FolderManagement'
 
 export default function MessagesPreviewPage() {
+  const { user } = useAuth()
   const [template, setTemplate] = useState(
     'こんにちは、{{name}}さん！\n\nご登録ありがとうございます。\n\n詳細はこちら: {{url}}'
   )
@@ -15,6 +38,39 @@ export default function MessagesPreviewPage() {
     name: '山田太郎',
     url: 'https://example.com/info',
   })
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [templateName, setTemplateName] = useState('')
+  const [channel, setChannel] = useState<'line' | 'email' | 'sms'>('line')
+  const [selectedFolder, setSelectedFolder] = useState<string>('')
+  const [folders, setFolders] = useState<(TemplateFolder & { id: string })[]>([])
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  useEffect(() => {
+    if (user && isDialogOpen) {
+      loadFolders()
+    }
+  }, [user, isDialogOpen])
+
+  const loadFolders = async () => {
+    if (!user) return
+
+    try {
+      const q = query(
+        collection(db, 'template_folders'),
+        where('ownerRef', '==', user.uid),
+        orderBy('createdAt', 'desc')
+      )
+      const querySnapshot = await getDocs(q)
+      const foldersData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as (TemplateFolder & { id: string })[]
+      setFolders(foldersData)
+    } catch (error) {
+      console.error('Error loading folders:', error)
+    }
+  }
 
   const renderPreview = () => {
     let preview = template
@@ -25,19 +81,187 @@ export default function MessagesPreviewPage() {
     return preview
   }
 
+  // Extract variables from template
+  const extractVariables = (text: string): string[] => {
+    const matches = text.match(/\{\{(\w+)\}\}/g)
+    return matches ? matches : []
+  }
+
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim()) {
+      setSaveStatus({ type: 'error', message: 'テンプレート名を入力してください' })
+      return
+    }
+
+    if (!user) {
+      setSaveStatus({ type: 'error', message: 'ログインが必要です' })
+      return
+    }
+
+    setIsSaving(true)
+    setSaveStatus(null)
+
+    try {
+      // Extract variables from template
+      const extractedVars = extractVariables(template)
+
+      const newTemplate: Omit<MessageTemplate, 'id'> = {
+        ownerRef: user.uid,
+        folderId: selectedFolder || undefined,
+        name: templateName,
+        body: template,
+        variables: extractedVars,
+        channel: channel,
+        createdAt: Timestamp.now(),
+      }
+
+      await addDoc(collection(db, 'message_templates'), newTemplate)
+
+      setSaveStatus({ type: 'success', message: 'テンプレートを保存しました！' })
+      setTemplateName('')
+      setSelectedFolder('')
+
+      // Close dialog after 1.5 seconds
+      setTimeout(() => {
+        setIsDialogOpen(false)
+        setSaveStatus(null)
+      }, 1500)
+    } catch (error) {
+      console.error('Error saving template:', error)
+      setSaveStatus({ type: 'error', message: 'テンプレートの保存に失敗しました' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-6xl">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">メッセージプレビュー</h1>
-        <p className="text-gray-600 mt-1">変数を差し込んだメッセージの表示を確認</p>
+        <h1 className="text-3xl font-bold text-gray-900">テンプレート</h1>
+        <p className="text-gray-600 mt-1">メッセージテンプレートの作成と管理</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <Tabs defaultValue="preview" className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="preview">テンプレート作成</TabsTrigger>
+          <TabsTrigger value="folders">フォルダ管理</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="preview" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Template Editor */}
         <Card>
           <CardHeader>
-            <CardTitle>テンプレート編集</CardTitle>
-            <CardDescription>変数は {'{{変数名}}'} の形式で記述</CardDescription>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle>テンプレート編集</CardTitle>
+                <CardDescription>変数は {'{{変数名}}'} の形式で記述</CardDescription>
+              </div>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="default" size="sm">
+                    💾 テンプレート保存
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>テンプレートを保存</DialogTitle>
+                    <DialogDescription>
+                      現在のテンプレートを保存して、後で再利用できるようにします
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="template-name">テンプレート名</Label>
+                      <Input
+                        id="template-name"
+                        placeholder="例: 初回登録お礼メール"
+                        value={templateName}
+                        onChange={(e) => setTemplateName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="channel">チャンネル</Label>
+                      <Select value={channel} onValueChange={(value: 'line' | 'email' | 'sms') => setChannel(value)}>
+                        <SelectTrigger id="channel">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="line">LINE</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                          <SelectItem value="sms">SMS</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="folder">保存先フォルダ（任意）</Label>
+                      </div>
+                      <Select value={selectedFolder || undefined} onValueChange={(value) => setSelectedFolder(value)}>
+                        <SelectTrigger id="folder">
+                          <SelectValue placeholder="フォルダなし（選択しない）" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {folders.length === 0 ? (
+                            <div className="p-2 text-sm text-gray-500 text-center">
+                              フォルダがありません
+                            </div>
+                          ) : (
+                            folders.map((folder) => (
+                              <SelectItem key={folder.id} value={folder.id}>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: folder.color }}
+                                  />
+                                  {folder.name}
+                                </div>
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {selectedFolder && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedFolder('')}
+                          className="text-xs"
+                        >
+                          選択解除
+                        </Button>
+                      )}
+                    </div>
+                    {saveStatus && (
+                      <div className={`p-3 rounded-md text-sm ${
+                        saveStatus.type === 'success'
+                          ? 'bg-green-50 text-green-800 border border-green-200'
+                          : 'bg-red-50 text-red-800 border border-red-200'
+                      }`}>
+                        {saveStatus.message}
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsDialogOpen(false)
+                        setSaveStatus(null)
+                        setTemplateName('')
+                        setSelectedFolder('')
+                      }}
+                      disabled={isSaving}
+                    >
+                      キャンセル
+                    </Button>
+                    <Button onClick={handleSaveTemplate} disabled={isSaving}>
+                      {isSaving ? '保存中...' : '保存'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -143,6 +367,12 @@ export default function MessagesPreviewPage() {
           ))}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="folders" className="mt-6">
+          <FolderManagement onFolderChange={loadFolders} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

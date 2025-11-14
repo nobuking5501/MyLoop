@@ -54,9 +54,20 @@ export interface Scenario {
   updatedAt?: Timestamp
 }
 
+export interface TemplateFolder {
+  id?: string
+  ownerRef: string
+  name: string
+  description?: string
+  color?: string
+  createdAt: Timestamp
+  updatedAt?: Timestamp
+}
+
 export interface MessageTemplate {
   id?: string
   ownerRef: string
+  folderId?: string // Reference to TemplateFolder
   name: string
   body: string
   variables: string[] // e.g., ['{{name}}', '{{date}}']

@@ -10,7 +10,7 @@ const navigation = [
   { name: 'ダッシュボード', href: '/dashboard', icon: '📊' },
   { name: 'シナリオ管理', href: '/scenarios', icon: '📝' },
   { name: '予約管理', href: '/events', icon: '📅' },
-  { name: 'メッセージプレビュー', href: '/messages/preview', icon: '✉️' },
+  { name: 'テンプレート', href: '/messages/preview', icon: '✉️' },
   { name: '設定', href: '/settings/integrations', icon: '⚙️' },
 ]
 

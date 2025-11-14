@@ -40,6 +40,14 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && isOwner(resource.data.ownerRef);
     }
 
+    // Template folders collection
+    match /template_folders/{folderId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerRef);
+      allow update: if isAuthenticated() && isOwner(resource.data.ownerRef);
+      allow delete: if isAuthenticated() && isOwner(resource.data.ownerRef);
+    }
+
     // Message templates collection
     match /message_templates/{templateId} {
       allow read: if isAuthenticated() && isOwner(resource.data.ownerRef);
