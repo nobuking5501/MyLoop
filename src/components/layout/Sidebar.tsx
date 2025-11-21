@@ -11,6 +11,7 @@ const navigation = [
   { name: 'シナリオ管理', href: '/scenarios', icon: '📝' },
   { name: '予約管理', href: '/events', icon: '📅' },
   { name: 'テンプレート', href: '/messages/preview', icon: '✉️' },
+  { name: 'LP作成', href: '/lp', icon: '🚀' },
   { name: '設定', href: '/settings/integrations', icon: '⚙️' },
 ]
 
